@@ -1,0 +1,636 @@
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+if CoreGui:FindFirstChild("UltimateMacroGui") then
+    CoreGui.UltimateMacroGui:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UltimateMacroGui"
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = CoreGui
+
+local camera = Workspace.CurrentCamera
+
+local cursor = Instance.new("ImageLabel")
+cursor.Size = UDim2.new(0, 32, 0, 32)
+cursor.Position = UDim2.new(0, 0, 0, 0)
+cursor.BackgroundTransparency = 1
+cursor.BorderSizePixel = 0
+cursor.Image = "rbxassetid://6035047409"
+cursor.Visible = false
+cursor.ZIndex = 999
+cursor.Parent = screenGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 460, 0, 440)
+mainFrame.Position = UDim2.new(0.5, -230, 0.5, -220)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = false
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner", mainFrame)
+mainCorner.CornerRadius = UDim.new(0, 10)
+
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = Color3.fromRGB(60, 60, 60)
+mainStroke.Thickness = 1.5
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, -40, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Text = "  Pro Macro (Multi-Macro System)"
+title.TextSize = 15
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.SourceSansBold
+title.Active = true
+title.ZIndex = 5
+
+local titleCorner = Instance.new("UICorner", title)
+titleCorner.CornerRadius = UDim.new(0, 10)
+
+local btnToggleUI = Instance.new("TextButton", mainFrame)
+btnToggleUI.Size = UDim2.new(0, 35, 0, 35)
+btnToggleUI.Position = UDim2.new(1, -35, 0, 0)
+btnToggleUI.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+btnToggleUI.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnToggleUI.Text = "-"
+btnToggleUI.TextSize = 18
+btnToggleUI.Font = Enum.Font.SourceSansBold
+btnToggleUI.ZIndex = 6
+
+local toggleCorner = Instance.new("UICorner", btnToggleUI)
+toggleCorner.CornerRadius = UDim.new(0, 10)
+
+-- ==================== CHẶN DÍNH KÉO ĐỘC QUYỀN (EXCLUSIVE FOCUS) ====================
+local mainDragging = false
+local eDragging = false
+local mainDragStart, mainStartPos
+local eDragStart, eStartPos
+
+local btnEFloating = Instance.new("TextButton", screenGui)
+btnEFloating.Size = UDim2.new(0, 50, 0, 50)
+btnEFloating.Position = UDim2.new(0.85, 0, 0.4, 0)
+btnEFloating.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
+btnEFloating.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnEFloating.Text = "E"
+btnEFloating.TextSize = 22
+btnEFloating.Font = Enum.Font.SourceSansBold
+btnEFloating.Active = true
+btnEFloating.Draggable = false
+btnEFloating.ZIndex = 998
+Instance.new("UICorner", btnEFloating).CornerRadius = UDim.new(0, 12)
+
+title.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not eDragging then
+        mainDragging = true
+        mainDragStart = input.Position
+        mainStartPos = mainFrame.Position
+    end
+end)
+
+btnEFloating.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not mainDragging then
+        eDragging = true
+        eDragStart = input.Position
+        eStartPos = btnEFloating.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if mainDragging and not eDragging then
+            local delta = input.Position - mainDragStart
+            mainFrame.Position = UDim2.new(
+                mainStartPos.X.Scale, 
+                mainStartPos.X.Offset + delta.X, 
+                mainStartPos.Y.Scale, 
+                mainStartPos.Y.Offset + delta.Y
+            )
+        elseif eDragging and not mainDragging then
+            local delta = input.Position - eDragStart
+            btnEFloating.Position = UDim2.new(
+                eStartPos.X.Scale, 
+                eStartPos.X.Offset + delta.X, 
+                eStartPos.Y.Scale, 
+                eStartPos.Y.Offset + delta.Y
+            )
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        mainDragging = false
+        eDragging = false
+    end
+end)
+
+local container = Instance.new("Frame", mainFrame)
+container.Size = UDim2.new(1, 0, 1, -35)
+container.Position = UDim2.new(0, 0, 0, 35)
+container.BackgroundTransparency = 1
+container.ClipsDescendants = true
+
+local isMinimized = false
+local isTweening = false
+
+btnToggleUI.MouseButton1Click:Connect(function()
+    if isTweening then return end
+    isTweening = true
+    
+    isMinimized = not isMinimized
+    local targetSize = isMinimized and UDim2.new(0, 460, 0, 35) or UDim2.new(0, 460, 0, 440)
+    local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    
+    if isMinimized then
+        container.Visible = false
+        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
+        tween:Play()
+        tween.Completed:Wait()
+        btnToggleUI.Text = "+"
+        btnToggleUI.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+    else
+        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
+        tween:Play()
+        tween.Completed:Wait()
+        container.Visible = true
+        btnToggleUI.Text = "-"
+        btnToggleUI.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    end
+    
+    isTweening = false
+end)
+
+-- ==================== CỘT TRÁI: ĐIỀU KHIỂN & SLIDER ====================
+local controlPanel = Instance.new("Frame", container)
+controlPanel.Size = UDim2.new(0, 230, 1, 0)
+controlPanel.Position = UDim2.new(0, 0, 0, 0)
+controlPanel.BackgroundTransparency = 1
+
+local delayLabel = Instance.new("TextLabel", controlPanel)
+delayLabel.Size = UDim2.new(0.9, 0, 0, 18)
+delayLabel.Position = UDim2.new(0.05, 0, 0, 5)
+delayLabel.BackgroundTransparency = 1
+delayLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+delayLabel.Text = "Delay vòng lặp: 2 phút 0 giây"
+delayLabel.TextSize = 12
+delayLabel.Font = Enum.Font.SourceSansBold
+
+local timeInputContainer = Instance.new("Frame", controlPanel)
+timeInputContainer.Size = UDim2.new(0.9, 0, 0, 26)
+timeInputContainer.Position = UDim2.new(0.05, 0, 0, 25)
+timeInputContainer.BackgroundTransparency = 1
+
+local minuteBox = Instance.new("TextBox", timeInputContainer)
+minuteBox.Size = UDim2.new(0.47, 0, 1, 0)
+minuteBox.Position = UDim2.new(0, 0, 0, 0)
+minuteBox.PlaceholderText = "Phút"
+minuteBox.Text = "2"
+minuteBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+minuteBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+minuteBox.TextSize = 11
+minuteBox.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", minuteBox).CornerRadius = UDim.new(0, 6)
+
+local secondBox = Instance.new("TextBox", timeInputContainer)
+secondBox.Size = UDim2.new(0.47, 0, 1, 0)
+secondBox.Position = UDim2.new(0.53, 0, 0, 0)
+secondBox.PlaceholderText = "Giây"
+secondBox.Text = "0"
+secondBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+secondBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+secondBox.TextSize = 11
+secondBox.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", secondBox).CornerRadius = UDim.new(0, 6)
+
+-- Slider 1 (Delay vòng lặp: 2 phút tương ứng tỷ lệ 2/60 = ~0.033)
+local sliderBg1 = Instance.new("Frame", controlPanel)
+sliderBg1.Size = UDim2.new(0.9, 0, 0, 10)
+sliderBg1.Position = UDim2.new(0.05, 0, 0, 56)
+sliderBg1.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+sliderBg1.BorderSizePixel = 0
+sliderBg1.ZIndex = 2
+Instance.new("UICorner", sliderBg1).CornerRadius = UDim.new(1, 0)
+
+local sliderFill1 = Instance.new("Frame", sliderBg1)
+sliderFill1.Size = UDim2.new(2/60, 0, 1, 0)
+sliderFill1.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+sliderFill1.BorderSizePixel = 0
+sliderFill1.ZIndex = 3
+Instance.new("UICorner", sliderFill1).CornerRadius = UDim.new(1, 0)
+
+local sliderBtn1 = Instance.new("TextButton", sliderBg1)
+sliderBtn1.Size = UDim2.new(0, 14, 1, 6)
+sliderBtn1.Position = UDim2.new(2/60, -7, -0.3, 0)
+sliderBtn1.Text = ""
+sliderBtn1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderBtn1.ZIndex = 4
+Instance.new("UICorner", sliderBtn1).CornerRadius = UDim.new(1, 0)
+
+local clickSpeedLabel = Instance.new("TextLabel", controlPanel)
+clickSpeedLabel.Size = UDim2.new(0.9, 0, 0, 20)
+clickSpeedLabel.Position = UDim2.new(0.05, 0, 0, 72)
+clickSpeedLabel.BackgroundTransparency = 1
+clickSpeedLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+clickSpeedLabel.Text = "Khoảng cách giữa click: 0.5s"
+clickSpeedLabel.TextSize = 12
+clickSpeedLabel.Font = Enum.Font.SourceSansBold
+
+-- Slider 2 (Khoảng cách giữa click: 0.5s trên max 5.0s -> tỷ lệ 0.5/5.0 = 0.1)
+local sliderBg2 = Instance.new("Frame", controlPanel)
+sliderBg2.Size = UDim2.new(0.9, 0, 0, 10)
+sliderBg2.Position = UDim2.new(0.05, 0, 0, 94)
+sliderBg2.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+sliderBg2.BorderSizePixel = 0
+sliderBg2.ZIndex = 2
+Instance.new("UICorner", sliderBg2).CornerRadius = UDim.new(1, 0)
+
+local sliderFill2 = Instance.new("Frame", sliderBg2)
+sliderFill2.Size = UDim2.new(0.1, 0, 1, 0)
+sliderFill2.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+sliderFill2.BorderSizePixel = 0
+sliderFill2.ZIndex = 3
+Instance.new("UICorner", sliderFill2).CornerRadius = UDim.new(1, 0)
+
+local sliderBtn2 = Instance.new("TextButton", sliderBg2)
+sliderBtn2.Size = UDim2.new(0, 14, 1, 6)
+sliderBtn2.Position = UDim2.new(0.1, -7, -0.3, 0)
+sliderBtn2.Text = ""
+sliderBtn2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderBtn2.ZIndex = 4
+Instance.new("UICorner", sliderBtn2).CornerRadius = UDim.new(1, 0)
+
+local nameBox = Instance.new("TextBox", controlPanel)
+nameBox.Size = UDim2.new(0.9, 0, 0, 28)
+nameBox.Position = UDim2.new(0.05, 0, 0, 112)
+nameBox.PlaceholderText = "Nhập tên macro..."
+nameBox.Text = "macro_mau"
+nameBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+nameBox.TextSize = 12
+nameBox.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", nameBox).CornerRadius = UDim.new(0, 6)
+
+local btnSave = Instance.new("TextButton", controlPanel)
+btnSave.Size = UDim2.new(0.9, 0, 0, 28)
+btnSave.Position = UDim2.new(0.05, 0, 0, 145)
+btnSave.Text = "💾 LƯU MACRO"
+btnSave.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+btnSave.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnSave.TextSize = 12
+btnSave.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", btnSave).CornerRadius = UDim.new(0, 6)
+
+local btnRecord = Instance.new("TextButton", controlPanel)
+btnRecord.Size = UDim2.new(0.9, 0, 0, 30)
+btnRecord.Position = UDim2.new(0.05, 0, 0, 180)
+btnRecord.Text = "🔴 1. BẬT GHI (RECORD)"
+btnRecord.BackgroundColor3 = Color3.fromRGB(178, 34, 34)
+btnRecord.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnRecord.TextSize = 12
+btnRecord.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", btnRecord).CornerRadius = UDim.new(0, 6)
+
+local btnStart = Instance.new("TextButton", controlPanel)
+btnStart.Size = UDim2.new(0.9, 0, 0, 30)
+btnStart.Position = UDim2.new(0.05, 0, 0, 215)
+btnStart.Text = "🟢 2. CHẠY (START)"
+btnStart.BackgroundColor3 = Color3.fromRGB(46, 139, 87)
+btnStart.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnStart.TextSize = 12
+btnStart.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", btnStart).CornerRadius = UDim.new(0, 6)
+
+local btnStop = Instance.new("TextButton", controlPanel)
+btnStop.Size = UDim2.new(0.9, 0, 0, 30)
+btnStop.Position = UDim2.new(0.05, 0, 0, 250)
+btnStop.Text = "⏹️ 3. DỪNG (STOP)"
+btnStop.BackgroundColor3 = Color3.fromRGB(112, 128, 144)
+btnStop.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnStop.TextSize = 12
+btnStop.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", btnStop).CornerRadius = UDim.new(0, 6)
+
+local statusLabel = Instance.new("TextLabel", controlPanel)
+statusLabel.Size = UDim2.new(0.9, 0, 0, 110)
+statusLabel.Position = UDim2.new(0.05, 0, 0, 285)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Text = "Trạng thái: Đã tải macro mẫu (2 tiếng/phút cấu hình sẵn 2 phút, click 0.5s)!"
+statusLabel.TextSize = 11
+statusLabel.TextWrapped = true
+statusLabel.Font = Enum.Font.SourceSansBold
+
+-- ==================== CỘT PHẢI: DANH SÁCH MACRO ĐÃ LƯU ====================
+local rightPanel = Instance.new("Frame", container)
+rightPanel.Size = UDim2.new(0, 220, 1, -10)
+rightPanel.Position = UDim2.new(0, 235, 0, 5)
+rightPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+rightPanel.BorderSizePixel = 0
+Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 6)
+
+local listTitle = Instance.new("TextLabel", rightPanel)
+listTitle.Size = UDim2.new(1, 0, 0, 30)
+listTitle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+listTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+listTitle.Text = "DANH SÁCH MACRO"
+listTitle.TextSize = 12
+listTitle.Font = Enum.Font.SourceSansBold
+local listTitleCorner = Instance.new("UICorner", listTitle)
+listTitleCorner.CornerRadius = UDim.new(0, 6)
+
+local scrollingList = Instance.new("ScrollingFrame", rightPanel)
+scrollingList.Size = UDim2.new(1, -10, 1, -40)
+scrollingList.Position = UDim2.new(0, 5, 0, 35)
+scrollingList.BackgroundTransparency = 1
+scrollingList.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollingList.ScrollBarThickness = 6
+
+local UIListLayout = Instance.new("UIListLayout", scrollingList)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 6)
+
+local sampleActions = {
+    {Type = "Click", X = 1322.5, Y = 485.0},
+    {Type = "Click", X = 508.5, Y = 300.5},
+    {Type = "Click", X = 532.0, Y = 535.5},
+    {Type = "Click", X = 509.0, Y = 765.5},
+    {Type = "Click", X = 961.5, Y = 155.0},
+    {Type = "Click", X = 1190.5, Y = 395.0}
+}
+
+for i = 1, 20 do
+    table.insert(sampleActions, {Type = "Key", Key = Enum.KeyCode.E})
+end
+
+local savedMacros = {
+    ["macro_mau"] = sampleActions
+}
+
+local recordedActions = savedMacros["macro_mau"]
+local isRecording = false
+local isRunning = false
+local selectedLoopDelay = 120 -- 2 phút = 120 giây
+local clickInterval = 0.5     -- Khoảng cách chuột mặc định 0.5s
+
+local draggingSlider1 = false
+local draggingSlider2 = false
+
+sliderBtn1.MouseButton1Down:Connect(function() draggingSlider1 = true end)
+sliderBg1.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider1 = true
+    end
+end)
+
+sliderBtn2.MouseButton1Down:Connect(function() draggingSlider2 = true end)
+sliderBg2.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider2 = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider1 = false
+        draggingSlider2 = false
+    end
+end)
+
+local function updateDelayFromInputs()
+    local mins = tonumber(minuteBox.Text) or 0
+    local secs = tonumber(secondBox.Text) or 0
+    selectedLoopDelay = (mins * 60) + secs
+    delayLabel.Text = string.format("Delay vòng lặp: %d phút %d giây", mins, secs)
+end
+
+minuteBox.FocusLost:Connect(updateDelayFromInputs)
+secondBox.FocusLost:Connect(updateDelayFromInputs)
+
+RunService.RenderStepped:Connect(function()
+    local mousePos = UserInputService:GetMouseLocation()
+    if draggingSlider1 then
+        local relX = math.clamp((mousePos.X - sliderBg1.AbsolutePosition.X) / sliderBg1.AbsoluteSize.X, 0, 1)
+        sliderFill1.Size = UDim2.new(relX, 0, 1, 0)
+        sliderBtn1.Position = UDim2.new(relX, -7, -0.3, 0)
+        selectedLoopDelay = math.floor(relX * 60)
+        
+        local m = math.floor(selectedLoopDelay / 60)
+        local s = selectedLoopDelay % 60
+        minuteBox.Text = tostring(m)
+        secondBox.Text = tostring(s)
+        delayLabel.Text = string.format("Delay vòng lặp: %d phút %d giây", m, s)
+    end
+    if draggingSlider2 then
+        local relX = math.clamp((mousePos.X - sliderBg2.AbsolutePosition.X) / sliderBg2.AbsoluteSize.X, 0, 1)
+        sliderFill2.Size = UDim2.new(relX, 0, 1, 0)
+        sliderBtn2.Position = UDim2.new(relX, -7, -0.3, 0)
+        clickInterval = math.floor((relX * 5.0) * 10) / 10
+        if clickInterval < 0.05 then clickInterval = 0.05 end
+        clickSpeedLabel.Text = string.format("Khoảng cách giữa click: %.1fs", clickInterval)
+    end
+end)
+
+btnEFloating.MouseButton1Click:Connect(function()
+    if isRecording then
+        table.insert(recordedActions, {Type = "Key", Key = Enum.KeyCode.E})
+        statusLabel.Text = "Đã ghi nhận nhấn phím E vào Macro!"
+    end
+end)
+
+local function setCompactMode(compact)
+    local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    if compact then
+        delayLabel.Visible = false
+        timeInputContainer.Visible = false
+        sliderBg1.Visible = false
+        clickSpeedLabel.Visible = false
+        sliderBg2.Visible = false
+        nameBox.Visible = false
+        btnSave.Visible = false
+        btnStart.Visible = false
+        btnStop.Visible = false
+        rightPanel.Visible = false
+        
+        btnRecord.Size = UDim2.new(0.9, 0, 0, 40)
+        btnRecord.Position = UDim2.new(0.05, 0, 0, 10)
+        statusLabel.Size = UDim2.new(0.9, 0, 0, 40)
+        statusLabel.Position = UDim2.new(0.05, 0, 0, 55)
+        
+        TweenService:Create(mainFrame, tweenInfo, {Size = UDim2.new(0, 250, 0, 110)}):Play()
+    else
+        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = UDim2.new(0, 460, 0, 440)})
+        tween:Play()
+        tween.Completed:Wait()
+        
+        btnRecord.Size = UDim2.new(0.9, 0, 0, 30)
+        btnRecord.Position = UDim2.new(0.05, 0, 0, 180)
+        statusLabel.Size = UDim2.new(0.9, 0, 0, 110)
+        statusLabel.Position = UDim2.new(0.05, 0, 0, 285)
+        
+        delayLabel.Visible = true
+        timeInputContainer.Visible = true
+        sliderBg1.Visible = true
+        clickSpeedLabel.Visible = true
+        sliderBg2.Visible = true
+        nameBox.Visible = true
+        btnSave.Visible = true
+        btnStart.Visible = true
+        btnStop.Visible = true
+        rightPanel.Visible = true
+    end
+end
+
+btnRecord.MouseButton1Click:Connect(function()
+    if not isRecording then
+        recordedActions = {}
+        isRecording = true
+        setCompactMode(true)
+        btnRecord.BackgroundColor3 = Color3.fromRGB(255, 69, 0)
+        btnRecord.Text = "⏹️ DỪNG GHI"
+        statusLabel.Text = "Trạng thái: Đang ghi nhận..."
+    else
+        isRecording = false
+        setCompactMode(false)
+        btnRecord.BackgroundColor3 = Color3.fromRGB(178, 34, 34)
+        btnRecord.Text = "🔴 1. BẬT GHI (RECORD)"
+        statusLabel.Text = "Đã ghi xong " .. #recordedActions .. " hành động."
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if isRecording and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+        local pos = input.Position
+        if (pos.X < mainFrame.AbsolutePosition.X or pos.X > mainFrame.AbsolutePosition.X + mainFrame.AbsoluteSize.X or
+           pos.Y < mainFrame.AbsolutePosition.Y or pos.Y > mainFrame.AbsolutePosition.Y + mainFrame.AbsoluteSize.Y) and
+           (pos.X < btnEFloating.AbsolutePosition.X or pos.X > btnEFloating.AbsolutePosition.X + btnEFloating.AbsoluteSize.X or
+            pos.Y < btnEFloating.AbsolutePosition.Y or pos.Y > btnEFloating.AbsolutePosition.Y + btnEFloating.AbsoluteSize.Y) then
+            local adjustedY = pos.Y + 72
+            table.insert(recordedActions, {Type = "Click", X = pos.X, Y = adjustedY})
+        end
+    end
+end)
+
+local function refreshMacroList()
+    for _, child in ipairs(scrollingList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    local count = 0
+    for macroName, data in pairs(savedMacros) do
+        count = count + 1
+        local btnMacro = Instance.new("TextButton", scrollingList)
+        btnMacro.Size = UDim2.new(1, 0, 0, 32)
+        btnMacro.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        btnMacro.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btnMacro.Text = macroName .. " (" .. #data .. " hành động)"
+        btnMacro.TextSize = 11
+        btnMacro.Font = Enum.Font.SourceSansBold
+        Instance.new("UICorner", btnMacro).CornerRadius = UDim.new(0, 6)
+        
+        btnMacro.MouseButton1Click:Connect(function()
+            recordedActions = data
+            -- Khi bấm chọn macro mẫu từ danh sách, tự động set cấu hình 2 phút và 0.5s
+            if macroName == "macro_mau" then
+                selectedLoopDelay = 120
+                clickInterval = 0.5
+                minuteBox.Text = "2"
+                secondBox.Text = "0"
+                delayLabel.Text = "Delay vòng lặp: 2 phút 0 giây"
+                clickSpeedLabel.Text = "Khoảng cách giữa click: 0.5s"
+                sliderFill1.Size = UDim2.new(1, 0, 1, 0)
+                sliderBtn1.Position = UDim2.new(1, -7, -0.3, 0)
+                sliderFill2.Size = UDim2.new(0.1, 0, 1, 0)
+                sliderBtn2.Position = UDim2.new(0.1, -7, -0.3, 0)
+            end
+            statusLabel.Text = "Đã chọn: " .. macroName .. " (Delay: 2 phút, Click: 0.5s)"
+        end)
+    end
+    scrollingList.CanvasSize = UDim2.new(0, 0, 0, count * 38)
+end
+
+refreshMacroList()
+
+btnSave.MouseButton1Click:Connect(function()
+    local mName = nameBox.Text
+    if mName == "" then mName = "macro_unnamed" end
+    if #recordedActions == 0 then
+        statusLabel.Text = "Lỗi: Chưa có hành động nào để lưu!"
+        return
+    end
+    local copyTable = {}
+    for _, v in ipairs(recordedActions) do
+        table.insert(copyTable, v)
+    end
+    savedMacros[mName] = copyTable
+    refreshMacroList()
+    statusLabel.Text = "Đã lưu: " .. mName
+end)
+
+btnStart.MouseButton1Click:Connect(function()
+    if #recordedActions == 0 then
+        statusLabel.Text = "Lỗi: Chưa chọn macro!"
+        return
+    end
+    if not isRunning then
+        isRunning = true
+        cursor.Visible = true
+        statusLabel.Text = "Trạng thái: Đang chạy macro..."
+        
+        task.spawn(function()
+            while isRunning do
+                for _, action in ipairs(recordedActions) do
+                    if not isRunning then break end
+                    
+                    if action.Type == "Click" then
+                        local targetPos = UDim2.new(0, action.X - 16, 0, action.Y - 16)
+                        local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+                        local tween = TweenService:Create(cursor, tweenInfo, {Position = targetPos})
+                        tween:Play()
+                        tween.Completed:Wait()
+                        
+                        VirtualInputManager:SendMouseButtonEvent(action.X, action.Y, 0, true, game, 1)
+                        task.wait(0.05)
+                        VirtualInputManager:SendMouseButtonEvent(action.X, action.Y, 0, false, game, 1)
+                    elseif action.Type == "Key" then
+                        VirtualInputManager:SendKeyEvent(true, action.Key, false, game)
+                        task.wait(0.05)
+                        VirtualInputManager:SendKeyEvent(false, action.Key, false, game)
+                    end
+                    
+                    task.wait(clickInterval)
+                end
+                
+                for i = selectedLoopDelay, 1, -1 do
+                    if not isRunning then break end
+                    local m = math.floor(i / 60)
+                    local s = i % 60
+                    statusLabel.Text = string.format("Chờ vòng mới: %02d:%02d", m, s)
+                    task.wait(1)
+                end
+            end
+        end)
+    end
+end)
+
+btnStop.MouseButton1Click:Connect(function()
+    isRunning = false
+    if isRecording then
+        isRecording = false
+        setCompactMode(false)
+    end
+    cursor.Visible = false
+    btnRecord.BackgroundColor3 = Color3.fromRGB(178, 34, 34)
+    btnRecord.Text = "🔴 1. BẬT GHI (RECORD)"
+    statusLabel.Text = "Trạng thái: Đã dừng."
+end)
